@@ -1,0 +1,38 @@
+v1.20 changes:
+interface:
+- replace changes.log under "runescape music" directory
+- fix "v1.9" typo at comments
+
+files:
+- rename funny rabbits.mid -> funny bunnies.mid (typo)
++ everlasting fire.mid (update)
++ fangs for the memory.mid (missing)
+
+v1.19 changes:
+interface:
+- add setup=changes.log to comments
+
+files:
++ runescape-corporal punishment.mid (missing)
+
+v1.18 changes:
+interface:
+- fix comment spacing
+
+files:
++ pest control.mid (update)
++ null and void.mid (update)
+
+v1.17 changes:
+interface
+- add changes.log
+- include version info at comments
+- seperate unlisted midi at differnet dir
+- add ring tone disclaimer
+
+files:
+- rename runescpae -> runescape of davy jones locker.mid (typo)
+- rename rowboad.mid -> swampboaty.mid
++ funny rabbits.mid (update)
++ church organ.mid
++ rug merchant.mid
