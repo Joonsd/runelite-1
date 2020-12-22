@@ -2,14 +2,9 @@ package net.runelite.client.plugins.oldschoolmusic;
 
 import lombok.SneakyThrows;
 import net.runelite.api.Client;
-import net.runelite.api.WorldType;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
-import net.runelite.api.events.WidgetHiddenChanged;
-import net.runelite.api.events.WidgetLoaded;
-import net.runelite.api.widgets.Widget;
-import net.runelite.api.widgets.WidgetID;
-import net.runelite.api.widgets.WidgetInfo;
+import net.runelite.api.events.VolumeChanged;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
@@ -17,12 +12,12 @@ import net.runelite.client.plugins.PluginDescriptor;
 import javax.inject.Inject;
 import javax.sound.midi.*;
 import java.io.File;
-import java.nio.file.FileSystems;
-import java.nio.file.Path;
+import java.io.InputStream;
+import java.time.LocalDateTime;
+import java.time.Month;
+import java.util.Date;
 import java.util.Timer;
 import java.util.TimerTask;
-
-import static net.runelite.api.widgets.WidgetID.MUSIC_GROUP_ID;
 
 @PluginDescriptor(
         name = "OldSchoolMusic",
@@ -35,15 +30,17 @@ public class OldSchoolMusic extends Plugin
     @Inject
     private Client client;
 
-    private boolean loggingIn;
-
     private static Sequencer sequencer;
     private static Synthesizer synthesizer;
 
-    private final String loginSong = "runescape-scape main";
+    private final String mainLoginSong = "runescape-scape main";
+    private final String christmasLoginSong = "runescape-scape santa";
+    private final String halloweenLoginSong = "runescape-scape scared";
 
-    private final int volume = 70;
+//    private final int volume = 70;
     private int currentVolume;
+    private int originalVolume;
+
 
     private final int fadeInTicks = 70; // 70 * 50ms == something 3400ms
                                         // if maxVolume is 140, then -2 volume every tick
@@ -59,8 +56,8 @@ public class OldSchoolMusic extends Plugin
     @Override
     protected void startUp()
     {
-        loggingIn = true;
-        currentVolume = volume;
+        originalVolume = client.getMusicVolume();
+        currentVolume = originalVolume;
     }
 
     @Override
@@ -76,23 +73,30 @@ public class OldSchoolMusic extends Plugin
             synthesizer.close();
             synthesizer = null;
         }
-        client.setMusicVolume(200);
+        client.setMusicVolume(originalVolume);
     }
 
     @Subscribe
     public void onGameStateChanged(GameStateChanged event)
     {
+        System.out.println("State changes to: " + event.getGameState());
+
         switch (event.getGameState())
         {
             case LOGGING_IN:
             case CONNECTION_LOST:
             case HOPPING:
-                loggingIn = true;
-
             case LOGIN_SCREEN:
-                if (checkPreviousSong(loginSong) == false)
+                if (checkPreviousSong(mainLoginSong) == false ||
+                        checkPreviousSong(christmasLoginSong) == false ||
+                        checkPreviousSong(halloweenLoginSong) == false)
+                {
                     return;
-                playOldSong(loginSong, true);
+                }
+
+                String loginTheme = getSeasonalLoginTheme();
+                setNewSong(loginTheme);
+                playOldSong(loginTheme, true);
 
             case LOGIN_SCREEN_AUTHENTICATOR:
             case LOADING:
@@ -101,9 +105,14 @@ public class OldSchoolMusic extends Plugin
     }
 
     private int tickCounter = 0;
-  private int j = 100;
+    private int j = 100;
     private String lastSong;
     private String currentSong;
+    private Boolean changingVolume = false;
+    private Boolean changingVolumeInSubscriber = false;
+
+    int maxFadeoutIterations = 30;
+    int currentFadeOutIteration = 0;
 
     @Subscribe
     public void onGameTick(GameTick event)
@@ -115,30 +124,80 @@ public class OldSchoolMusic extends Plugin
 
         System.out.println("Song changes to: " + newSong);
 
+        setNewSong(newSong);
+
         String oldSongName = getOldSongName(newSong);
         playOldSong(oldSongName, false);
+    }
 
+    @Subscribe
+    public void onVolumeChanged(VolumeChanged volumeChanged)
+    {
+        System.out.println("onVolumeChanged: " + volumeChanged);
 
-        if (!loggingIn)
+        if (!changingVolumeInSubscriber && !changingVolume && volumeChanged.getType() == VolumeChanged.Type.MUSIC)
         {
-            return;
-        }
+            int newVolume = client.getMusicVolume();
+            originalVolume = newVolume;
 
-        loggingIn = false;
+            if (newVolume > 0)
+            {
+                changingVolumeInSubscriber = true;
+                client.setMusicVolume(0);
+                setMUTE(false);
+                setVolume(originalVolume);
+            }
+            else {
+                setMUTE(true);
+                setVolume(0);
+            }
+        }
+        else {
+            changingVolumeInSubscriber = false;
+        }
     }
 
     public boolean checkPreviousSong(String newSong) {
-        if (currentSong == newSong || newSong == "AUTO" || newSong == "MANUAL") {
+        if (currentSong == newSong || newSong == "AUTO" || newSong == "auto" || newSong == "MANUAL") {
             return false;
         }
-
-        lastSong = currentSong;
-        currentSong = newSong;
 
         return true;
     }
 
+    public void setNewSong(String newSong) {
+        lastSong = currentSong;
+        currentSong = newSong;
+    }
+
+    public String getSeasonalLoginTheme() {
+        LocalDateTime now = LocalDateTime.now();
+        if (now.getMonth() == Month.DECEMBER && (now.getDayOfMonth() >= 9 && now.getDayOfMonth() <= 31))
+        {
+            return christmasLoginSong;
+        }
+        else if ((now.getMonth() == Month.OCTOBER && (now.getDayOfMonth() >= 21)) ||
+                 (now.getMonth() == Month.NOVEMBER && (now.getDayOfMonth() <= 11)))
+        {
+            return halloweenLoginSong;
+        }
+        else
+        {
+            return mainLoginSong;
+        }
+    }
+
         public String getOldSongName(String songName) {
+
+            if (songName.equalsIgnoreCase("Goblin Village"))
+            {
+                songName = "gnome";
+            }
+            else if (songName.equalsIgnoreCase("Dwarf Theme"))
+            {
+                songName = "gnome theme";
+            }
+
             String prefix = "runescape-";
             String oldSongName = prefix+songName;
             return oldSongName.toLowerCase();
@@ -146,23 +205,34 @@ public class OldSchoolMusic extends Plugin
 
         public void playOldSong(String songName, boolean noFade) {
             try {
+                changingVolume = true;
+
+                currentVolume = originalVolume;
                 client.setMusicVolume(0);
 
+                changingVolume = false;
+
                 String pathToSong = OldSchoolMusic.class.getResource("").getPath() + "runescape_music/"+songName+".mid";
+                InputStream midFile = OldSchoolMusic.class.getResourceAsStream("runescape_music/"+songName+".mid");
+                //InputStream midFile = OldSchoolMusic.class.getResourceAsStream(songName+".mid");
+
+                System.out.println(midFile);
+
                 System.out.println(pathToSong);
                 stopFadeOut(noFade);
-                play(pathToSong);
+                play(midFile);
 
             } catch (Exception e) {
                 System.out.println("Err" + e.getMessage());
                 stopFadeOut(noFade);
 
-                client.setMusicVolume(200);
-                System.out.println("Song not found. Playing OSRS music");
+                client.setMusicVolume(originalVolume);
+                currentVolume = originalVolume;
+                System.out.println("Song " + songName + " not found. Playing OSRS music");
             }
         }
 
-        private void play(String song) {
+        private void play(InputStream song) {
             try {
 
                 if (busy)
@@ -190,14 +260,14 @@ public class OldSchoolMusic extends Plugin
                             createSequencer();
                             createSynthesizer();
 
-                            Sequence sequence = MidiSystem.getSequence(new File(song));
+                            Sequence sequence = MidiSystem.getSequence(song);
 
                             sequencer.open();
                             sequencer.setSequence(sequence);
 
                             Thread.sleep( 400 );
 
-                            setVolume(volume);
+                            setVolume(originalVolume);
                             // Start playing
                             sequencer.start();
                             musicState = CurrentState.Playing;
@@ -205,18 +275,20 @@ public class OldSchoolMusic extends Plugin
 
                         }
                         catch (Exception err)  {
-                            System.out.println("Err" + err.getMessage());
+                            err.printStackTrace();
+                            System.out.println("Err " + err.getMessage());
                             stopFadeOut(false);
                             musicState = CurrentState.Idle;
                             busy = false;
-                            client.setMusicVolume(200);
+                            client.setMusicVolume(originalVolume);
                             System.out.println("Song not found. Playing OSRS music");
                         }
                     }
                 } ).start();
 
             } catch (Exception err) {
-                System.out.println("Err" + err.getMessage());
+                err.printStackTrace();
+                System.out.println("Err " + err.getMessage());
             }
         }
 
@@ -242,6 +314,11 @@ public class OldSchoolMusic extends Plugin
 
                     return;
                 }
+
+                System.out.println("Current vol " + currentVolume);
+
+                final int startVolume = currentVolume;
+                currentFadeOutIteration = 0;
 
                 Timer t = new Timer( );
                 t.scheduleAtFixedRate(new TimerTask() {
@@ -270,7 +347,38 @@ public class OldSchoolMusic extends Plugin
                             cancel();
                         }
                         else {
-                            if  (setVolume(currentVolume - 1) == false)
+
+                            int volumeDown = 0;
+                            currentFadeOutIteration++;
+
+                            if (startVolume < maxFadeoutIterations)
+                            {
+                                if ((maxFadeoutIterations - currentFadeOutIteration) > startVolume)
+                                {
+                                    volumeDown = 0;
+                                }
+                                else {
+                                    volumeDown = 1;
+                                }
+                            }
+                            else {
+                                if (startVolume % maxFadeoutIterations == 0)
+                                {
+                                    volumeDown = startVolume / maxFadeoutIterations;
+                                }
+                                else {
+                                    volumeDown = startVolume / maxFadeoutIterations;
+
+                                    int remainder = startVolume % maxFadeoutIterations;
+
+                                    if (currentFadeOutIteration <= remainder)
+                                    {
+                                        volumeDown++;
+                                    }
+                                }
+                            }
+
+                            if  (setVolume(currentVolume - volumeDown) == false)
                             {
                                 sequencer = null;
                                 synthesizer = null;
@@ -290,10 +398,14 @@ public class OldSchoolMusic extends Plugin
 
         private boolean setVolume(int vlm) {
             try {
-                javax.sound.midi.MidiChannel[] channels = synthesizer.getChannels();
-                for( int c = 0; channels != null && c < channels.length; c++ )
+
+                if (synthesizer != null)
                 {
-                    channels[c].controlChange( 7, vlm );
+                    javax.sound.midi.MidiChannel[] channels = synthesizer.getChannels();
+                    for( int c = 0; channels != null && c < channels.length; c++ )
+                    {
+                        channels[c].controlChange( 7, vlm );
+                    }
                 }
 
                 currentVolume = vlm;
