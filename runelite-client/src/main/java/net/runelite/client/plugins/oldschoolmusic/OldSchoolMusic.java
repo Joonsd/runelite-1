@@ -24,6 +24,10 @@ import java.util.TimerTask;
         description = "Change OSRS music to older ones"
 )
 
+/*
+    THIS PLUGIN IS UNFINISHED AND NEEDS TO BE REWRITTEN
+    USE WITH CAUTION
+ */
 public class OldSchoolMusic extends Plugin
 {
 
@@ -37,21 +41,24 @@ public class OldSchoolMusic extends Plugin
     private final String christmasLoginSong = "runescape-scape santa";
     private final String halloweenLoginSong = "runescape-scape scared";
 
-//    private final int volume = 70;
+    private final int PLAYING_MUSIC_PARENT_ID = 15663104;
+    private final int PLAYING_MUSIC_ID = 15663110;
+
+    //    private final int volume = 70;
     private int currentVolume;
     private int originalVolume;
 
-
-    private final int fadeInTicks = 70; // 70 * 50ms == something 3400ms
-                                        // if maxVolume is 140, then -2 volume every tick
-                                        // 70 is -1
-                                        // 35 is -1 every other tick
     private CurrentState musicState = CurrentState.Idle;
 
     private boolean busy;
 
-    private final int PLAYING_MUSIC_PARENT_ID = 15663104;
-    private final int PLAYING_MUSIC_ID = 15663110;
+    private String lastSong;
+    private String currentSong;
+    private Boolean changingVolume = false;
+    private Boolean changingVolumeInSubscriber = false;
+
+    private int maxFadeoutIterations = 30;
+    private int currentFadeOutIteration = 0;
 
     @Override
     protected void startUp()
@@ -103,16 +110,6 @@ public class OldSchoolMusic extends Plugin
             case STARTING:
         }
     }
-
-    private int tickCounter = 0;
-    private int j = 100;
-    private String lastSong;
-    private String currentSong;
-    private Boolean changingVolume = false;
-    private Boolean changingVolumeInSubscriber = false;
-
-    int maxFadeoutIterations = 30;
-    int currentFadeOutIteration = 0;
 
     @Subscribe
     public void onGameTick(GameTick event)

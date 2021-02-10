@@ -299,14 +299,14 @@
 //                                                 }
 //                                         }
 //
-//                                         String[] actions = new String[] {"Wear", "Rub", "Nekru", "Kakka", "Pieru"};
+//                                         String[] actions = new String[] {"Wear", "Rub", "asd1", "asd2", "asd3"};
 //                                         tryReplaceComposition(ic, ic.getInventoryActions(), actions);
 //
 //                                 }
 //
 //                                 if (item.getId() == 209) {
 //                                        String itemName = ic.getName();
-//                                         tryReplaceComposition(ic, itemName, "nekru");
+//                                         tryReplaceComposition(ic, itemName, "asd");
 //
 //                                         String[] actions = new String[] {"sdffsd", "fsdfsd"};
 //                                         String[] oldAcs = ic.getInventoryActions();
