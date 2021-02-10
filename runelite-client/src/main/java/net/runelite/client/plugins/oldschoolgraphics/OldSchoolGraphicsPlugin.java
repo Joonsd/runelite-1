@@ -299,7 +299,7 @@
 //                                                 }
 //                                         }
 //
-//                                         String[] actions = new String[] {"Wear", "Rub", "asd1", "asd2", "asd3"};
+//                                         String[] actions = new String[] {"Wear", "Rub", "asd", "asdasd", "asdasdasd"};
 //                                         tryReplaceComposition(ic, ic.getInventoryActions(), actions);
 //
 //                                 }
